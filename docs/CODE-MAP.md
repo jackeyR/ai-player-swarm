@@ -29,13 +29,13 @@ python scripts/gen_codemap.py
 | 项 | 数量 |
 |---|---|
 | 源码文件（Go，非测试） | 45 |
-| 源码行数（Go，非测试） | 12,397 |
+| 源码行数（Go，非测试） | 12,412 |
 | 测试文件 | 19 |
-| 测试行数 | 4,323 |
-| 测试函数 | 124 |
+| 测试行数 | 4,348 |
+| 测试函数 | 125 |
 | Go 包（含 cmd 与 srv） | 29 |
 | 第三方依赖 | 1（`gopkg.in/yaml.v3`） |
-| 非 Go 文件（配置/文档/脚本） | 39 |
+| 非 Go 文件（配置/文档/脚本） | 42 |
 
 ### 2.2 目录树
 
@@ -111,7 +111,7 @@ swarm/
 
 | 文件 | 行 | 作用 | 关键导出 |
 |---|---|---|---|
-| `cmd/client/main.go` | 735 | 真人客户端：交互 TUI / 逐行 / 无人值守三模，记录真人数据（bots.jsonl + trace.jsonl + sessions.json）供保真度对照。 | `Close` / `Count` / `Events` / `Match` / `Trace` |
+| `cmd/client/main.go` | 736 | 真人客户端：交互 TUI / 逐行 / 无人值守三模，记录真人数据（bots.jsonl + trace.jsonl + sessions.json）供保真度对照。 | `Close` / `Count` / `Events` / `Match` / `Trace` |
 | `cmd/controller/main.go` | 58 | 控制面入口：起 HTTP 服务，接受计划提交、查询、停止；退出时取消在跑的实验。 | —（内部实现，不导出） |
 | `cmd/runner/main.go` | 96 | bot 集群单机入口：读负载计划 → 解析相对路径 → 建 runner → 跑到结束 → 打印分位数汇总。 | —（内部实现，不导出） |
 | `cmd/sutd/main.go` | 120 | 被测系统的入口：解析参数 → 覆盖配置 → 组装四层 → 等信号优雅退出。真正的组装逻辑在 srv/sut，这里只做参数与打印。 | —（内部实现，不导出） |
@@ -186,7 +186,7 @@ swarm/
 | 文件 | 行 | 作用 | 关键导出 |
 |---|---|---|---|
 | `internal/controller/controller.go` | 385 | 控制面：6 个 HTTP 端点 + 实验生命周期 + 并发实验限制 + 配置快照。 | `Config` / `Controller` / `Handler` / `ListenAndServe` / `New` / `Run` …+3 |
-| `internal/plan/plan.go` | 201 | 负载计划：YAML 加载、默认值、校验、稳定指纹、persona 目录解析、CO 预期间隔。对应 K1 / H8。 | `Behaviors` / `Defaults` / `ExpectedInterval` / `Fingerprint` / `Limits` / `Load` …+6 |
+| `internal/plan/plan.go` | 215 | 负载计划：YAML 加载、默认值、校验、稳定指纹、persona 目录解析、CO 预期间隔。对应 K1 / H8。 | `Behaviors` / `Defaults` / `ExpectedInterval` / `Fingerprint` / `Limits` / `Load` …+6 |
 | `internal/runner/runner.go` | 385 | 单机 runner：生成到达表 → 信号量限并发 → 起 bot → 汇总分位数 → 写 plan/meta/result/bots 四个产物。 | `Config` / `Dir` / `ID` / `New` / `Result` / `Run` …+2 |
 
 ### 3.8 被测系统（srv）
@@ -221,6 +221,7 @@ swarm/
 
 | 文件 | 行 | 作用 |
 |---|---|---|
+| `.github/workflows/ci.yml` | 74 | ⚠ 未填写作用描述 |
 | `analysis/README.md` | 47 | 离线分析的使用说明：为什么不用 scipy/matplotlib、参照数据从哪来、口径怎么对齐。 |
 | `analysis/analyze.py` | 453 | 离线分析：读 bots.jsonl → 分位数表 + KS 检验 + Wasserstein 距离 + persona 维度 + 手写 SVG 的 CDF 图。零依赖。 |
 | `analysis/reference.example.json` | 4 | 参照样本占位文件：演示 KS / Wasserstein 对比流程，明确标注「不可用于报告」。 |
@@ -237,7 +238,7 @@ swarm/
 | `deploy/sut.smoke.yaml` | 47 | 冒烟配置：一局 10 秒、瓶颈全关，供 CI 与本地联调。 |
 | `deploy/sut.yaml` | 59 | SUT 默认配置：三个刻意瓶颈全部打开（Redis 热键、分配器全局锁、结算同步写）。 |
 | `docs/CODE-MAP.md` | 328 | 本文件：项目从源码到组成的完整清单，由 scripts/gen_codemap.py 生成。 |
-| `docs/FINDINGS.md` | 356 | 压测发现并修复的 8 个真实缺陷：现象→定位→根因→修复→面试怎么讲。 |
+| `docs/FINDINGS.md` | 379 | 压测发现并修复的 8 个真实缺陷：现象→定位→根因→修复→面试怎么讲。 |
 | `docs/HANDWRITE.md` | 204 | 必须自己手写的部分（从两份文档提取）：白板代码、必背数字、自写文字、自检题库。 |
 | `docs/METRICS.md` | 100 | 每个指标的定义、标签、PromQL、以及「为什么 p99 和别人不一样」的口径说明。 |
 | `docs/SLO.md` | 47 | 四层 SLO（登录/匹配/分配/房间）+ 业务口径 + 错误预算用法。 |
@@ -255,9 +256,11 @@ swarm/
 | `scripts/md2docx.py` | 601 | Markdown → Word 转换器：表格按表头签名分列宽、OOXML 元素顺序归一化、页码与表头重复。 |
 | `scripts/smoke.cmd` | 6 | smoke.ps1 的 cmd 包装：绕过 PowerShell 执行策略。 |
 | `scripts/smoke.ps1` | 94 | 冒烟脚本：编译 → 起 SUT → 跑 runner → 生成分析报告 → 收尾清进程。 |
+| `.gitattributes` | 16 | ⚠ 未填写作用描述 |
 | `.gitignore` | 22 | 忽略构建产物与实验结果（results/、bin/、parquet/jsonl），配置与计划必须进版本库。 |
+| `LICENSE` | 21 | ⚠ 未填写作用描述 |
 | `Makefile` | 96 | 常用命令入口：build / vet / test / test-race / cover / smoke / baseline / fixed / clean。 |
-| `README.md` | 196 | 项目总览：架构图、指标表、代码地图、快速开始、三个刻意瓶颈、刻意不做、已知限制。 |
+| `README.md` | 208 | 项目总览：架构图、指标表、代码地图、快速开始、三个刻意瓶颈、刻意不做、已知限制。 |
 | `go.mod` | 5 | 模块声明与唯一的第三方依赖：gopkg.in/yaml.v3。 |
 | `go.sum` | 4 | 依赖校验和。 |
 
@@ -273,7 +276,7 @@ swarm/
 | `internal/controller/controller_test.go` | 204 | 2 | 提交→轮询→完成→列表→停止 409、四种错误请求 |
 | `internal/hist/hist_test.go` | 405 | 12 | 分位精度、常量/空图、钳位、补记计数、**CO 修正效果**、Merge、累积桶、并发、JSON |
 | `internal/metrics/metrics_test.go` | 466 | 13 | 文本快照、转义、累积桶、无标签不写 {}、SetFunc、并发、序列清理、运行时指标 |
-| `internal/plan/plan_test.go` | 127 | 4 | 计划指纹**跨机器/跨目录稳定**，但语义变化必须变；示例计划都能解析 |
+| `internal/plan/plan_test.go` | 152 | 5 | 计划指纹**跨机器/跨目录稳定**，但语义变化必须变；示例计划都能解析 |
 | `internal/play/view_test.go` | 155 | 7 | TUI 与逐行两套渲染、ANSI 可见宽度、血条定宽、原地刷新与退出复位 |
 | `internal/protocol/protocol_test.go` | 163 | 6 | 二进制读写越界不 panic、全部消息往返、快照人数上限、截断消息报错 |
 | `internal/protocol/snapshot_test.go` | 70 | 2 | 快照解码的分配语义（DecodeSnapshot 必分配 / Into 零分配）与缓冲复用不残留旧帧 |

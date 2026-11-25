@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -172,11 +173,24 @@ func (p *Plan) fingerprintView() *Plan {
 }
 
 // baseName 取路径的最后一段；空串保持空串（表示「用内置默认值」）。
+//
+// 这里**不能用 filepath.Base**：它是平台相关的。Windows 上 `filepath.Base("D:\a\results")`
+// 得到 "results"，但 Linux 上反斜杠不是分隔符，会原样返回整个字符串——于是同一份计划
+// 在 Windows 上算出的指纹和在 Linux 上算出的不一样，正好破坏了指纹的唯一用途。
+// CI 的 Linux 作业就是这么把它抓出来的。
 func baseName(p string) string {
 	if p == "" {
 		return ""
 	}
-	return filepath.Base(p)
+	if trimmed := strings.TrimRight(p, `/\`); trimmed != "" {
+		p = trimmed
+	} else {
+		return ""
+	}
+	if i := strings.LastIndexAny(p, `/\`); i >= 0 {
+		return p[i+1:]
+	}
+	return p
 }
 
 // LoadCatalog 加载 persona 目录；未指定文件时用内置默认值。

@@ -114,7 +114,7 @@ func TestFingerprintDeterministic(t *testing.T) {
 
 // TestLoadSmokePlan 确认仓库里的示例计划都能被解析并通过校验。
 func TestLoadSmokePlan(t *testing.T) {
-	for _, path := range []string{"../../plans/smoke.yaml", "../../plans/baseline.yaml", "../../plans/peak.yaml"} {
+	for _, path := range []string{"../../plans/smoke.yaml", "../../plans/baseline.yaml", "../../plans/peak.yaml", "../../plans/duel.yaml"} {
 		p, err := Load(path)
 		if err != nil {
 			t.Errorf("加载 %s: %v", path, err)
@@ -122,6 +122,31 @@ func TestLoadSmokePlan(t *testing.T) {
 		}
 		if _, err := p.Fingerprint(); err != nil {
 			t.Errorf("%s 指纹: %v", path, err)
+		}
+	}
+}
+
+// TestBaseNameCrossPlatform 把「两种分隔符都要认」这件事钉死。
+//
+// 这是 F15 的直接回归：修复前用的是 filepath.Base，它在 Linux 上不认反斜杠，
+// 于是 Windows 风格的路径在 Linux 上取不到 basename，指纹跨平台不一致。
+// 这条测试不依赖运行平台，所以在任何机器上跑都有意义。
+func TestBaseNameCrossPlatform(t *testing.T) {
+	cases := map[string]string{
+		"":                         "",
+		"results":                  "results",
+		`D:\work\results`:          "results",
+		`D:\work\临时\results`:       "results",
+		"/home/me/results":         "results",
+		"../deploy/sut.smoke.yaml": "sut.smoke.yaml",
+		`..\deploy\sut.smoke.yaml`: "sut.smoke.yaml",
+		"trailing/":                "trailing",
+		`trailing\`:                "trailing",
+		"//":                       "",
+	}
+	for in, want := range cases {
+		if got := baseName(in); got != want {
+			t.Errorf("baseName(%q) = %q，期望 %q", in, got, want)
 		}
 	}
 }

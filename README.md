@@ -104,7 +104,7 @@ python analysis\analyze.py results\<bot-run> --reference results\human-me\sessio
 | 房间 tick 超预算率 | 超 16ms 的 tick 占比 | < 0.1% | 0.00%（冒烟档瓶颈全关） |
 | 输入校验 | 非法输入被拒 / 注入数 | 100% | 101 / 101 |
 | 行为保真度 | 会话时长 KS / Wasserstein | p > 0.05 | 冒烟 persona 是故意做短的，**不能**用来看保真度 |
-| 缺陷产出 | 压测发现并修复的问题 | ≥ 5 | **14**（见 `docs/FINDINGS.md`，含 3 个并发/数据丢失类竞态） |
+| 缺陷产出 | 压测发现并修复的问题 | ≥ 5 | **15**（见 `docs/FINDINGS.md`，含 3 个并发/数据丢失类竞态） |
 
 > 复现命令与逐项对账见 `docs/FINDINGS.md`。**别信这张表，信 `results/` 里的原始数据。**
 > 冒烟档的意义是「一条命令验证整条链路」，性能数字要看 `plans/baseline.yaml` 与
@@ -194,7 +194,7 @@ python analysis\analyze.py results\<bot-run> --reference results\human-me\sessio
   11 项必背数字、8 项自写文字、24 题自检 + 9 问答案骨架）
 - [`docs/SLO.md`](docs/SLO.md)：四层 SLO 与业务口径
 - [`docs/METRICS.md`](docs/METRICS.md)：每个指标的定义、标签、PromQL
-- [`docs/FINDINGS.md`](docs/FINDINGS.md)：14 个压测发现的问题与修复前后对比
+- [`docs/FINDINGS.md`](docs/FINDINGS.md)：15 个压测发现的问题与修复前后对比
 - [`analysis/README.md`](analysis/README.md)：保真度分析与报告出图
 
 ## 许可
