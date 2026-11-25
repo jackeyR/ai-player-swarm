@@ -1,0 +1,47 @@
+# 冒烟用 SUT：一局 10 秒，所有刻意瓶颈关闭，房间回收正常。
+# 用途：验证「一个 bot 能跑完整个生命周期」以及 CI 里的端到端测试。
+metrics_addr: ":9090"
+room_advertise_addr: "127.0.0.1:8090"
+
+gateway:
+  addr: ":8080"
+  server_name: "swarm-sut/smoke"
+  client_secret: "dsh-swarm-dev-secret"
+  session_ttl_minutes: 30
+  heartbeat_timeout_ms: 15000
+  handshake_timeout_ms: 5000
+  max_message_bytes: 65536
+
+room:
+  tick_rate_ms: 100
+  duration_ticks: 100        # 10s 一局
+  fill_timeout_ms: 3000
+  empty_ttl_ms: 5000
+  heartbeat_timeout_ms: 5000
+  budget_ms: 16
+  start_delay_ms: 0
+  leak_injection: false
+
+alloc:
+  mode: ranked5v5
+  pool_size: 64
+  refill_interval_ms: 100
+  redis_latency_ms: 0.0
+  pool_hot_key: false
+  global_lock: false
+
+match:
+  mode: ranked5v5
+  team_size: 5
+  loop_interval_ms: 100
+  initial_window: 400
+  window_growth_per_sec: 200
+  max_window: 2000
+  starve_after_ms: 4000
+
+redis:
+  shards: 8
+  latency_ms: 0.0
+
+settlement:
+  fsync_ms: 0.0

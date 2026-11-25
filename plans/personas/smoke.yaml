@@ -1,0 +1,76 @@
+# 冒烟用 persona：短会话、高失败路径概率。
+#
+# 为什么需要这个：默认 persona 的会话时长中位数是 25-70 分钟（那是真实的），
+# 用它做冒烟测试要等半小时才能看到结果。这份文件把会话压到 1-2 分钟，
+# 同时**故意提高**取消排队 / 断线 / 结算前退出的概率，
+# 让冒烟的几分钟里就能把失败路径全跑一遍（E4：失败路径与主路径同等重要）。
+#
+# 注意：这份目录只能用于联调，不能用于保真度报告。
+
+personas:
+  - name: smoke_casual
+    weight: 0.55
+    description: 冒烟用「休闲」：1-2 分钟打一局就走
+    session_minutes: { dist: lognorm, mu: 0.2, sigma: 0.5, min: 0.4, max: 4 }
+    matches_per_session: { dist: poisson, lambda: 1.2, min: 1 }
+    requeue_gap_s: { dist: exp, mean: 4, min: 1, max: 20 }
+    think_time_ms: { dist: lognorm, mu: 6.9, sigma: 0.5, min: 150, max: 8000 }
+    burst_interval_ms: { dist: uniform, low: 100, high: 300 }
+    idle_interval_ms: { dist: uniform, low: 3000, high: 10000 }
+    burst_p: 0.45
+    actions_per_match: { dist: poisson, lambda: 120, min: 5 }
+    invalid_input_p: 0.05
+    queue_cancel_p: 0.10
+    queue_cancel_after_s: 2
+    pre_settle_quit_p: 0.05
+    disconnect_p: 0.10
+    max_reconnects: 3
+    quit_after_losses: 1
+    loss_hazard: 0.5
+    mmr_mean: 1500
+    mmr_std: 200
+
+  - name: smoke_griefer
+    weight: 0.30
+    description: 冒烟用「破坏者」：专门走取消排队 / 秒退 / 重连
+    session_minutes: { dist: lognorm, mu: 0.0, sigma: 0.6, min: 0.3, max: 3 }
+    matches_per_session: { dist: poisson, lambda: 2.0, min: 1 }
+    requeue_gap_s: { dist: exp, mean: 3, min: 1, max: 10 }
+    think_time_ms: { dist: lognorm, mu: 6.2, sigma: 0.7, min: 100, max: 4000 }
+    burst_interval_ms: { dist: uniform, low: 50, high: 150 }
+    idle_interval_ms: { dist: uniform, low: 500, high: 2500 }
+    burst_p: 0.80
+    actions_per_match: { dist: poisson, lambda: 60, min: 5 }
+    invalid_input_p: 0.20
+    queue_cancel_p: 0.25
+    queue_cancel_after_s: 1
+    pre_settle_quit_p: 0.30
+    disconnect_p: 0.40
+    max_reconnects: 2
+    quit_after_losses: 1
+    loss_hazard: 0.8
+    mmr_mean: 1300
+    mmr_std: 300
+
+  - name: smoke_afk
+    weight: 0.15
+    description: 冒烟用「挂机」：验证心跳超时与踢人
+    session_minutes: { dist: lognorm, mu: 0.5, sigma: 0.4, min: 0.5, max: 5 }
+    matches_per_session: { dist: poisson, lambda: 1.5, min: 1 }
+    requeue_gap_s: { dist: exp, mean: 3, min: 1, max: 10 }
+    think_time_ms: { dist: lognorm, mu: 8.5, sigma: 0.5, min: 500, max: 30000 }
+    burst_interval_ms: { dist: uniform, low: 4000, high: 9000 }
+    idle_interval_ms: { dist: uniform, low: 9000, high: 20000 }
+    burst_p: 0.20
+    actions_per_match: { dist: const, value: 2 }
+    invalid_input_p: 0.0
+    queue_cancel_p: 0.0
+    queue_cancel_after_s: 5
+    pre_settle_quit_p: 0.10
+    disconnect_p: 0.05
+    max_reconnects: 1
+    afk_p: 0.90
+    quit_after_losses: 0
+    loss_hazard: 0.0
+    mmr_mean: 1400
+    mmr_std: 200

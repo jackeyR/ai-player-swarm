@@ -1,0 +1,43 @@
+# 冒烟计划：30 个 bot，5/s 到达，验证「一个 bot 能跑完整个生命周期」再到并发。
+#
+# 用法：
+#   1) sutd -config deploy/sut.smoke.yaml
+#   2) runner -plan plans/smoke.yaml -metrics :9091
+#
+# 验收标准（方案 §4.3 W2）：100 bot 跑完一局、无泄漏。
+# 冒烟先跑 30 个，Dockerfile/CI 里也用这一份。
+name: smoke
+description: 冒烟：验证完整生命周期与基本并发
+seed: 20261121
+
+traffic:
+  shape: constant
+  total_bots: 30
+  rate: 5          # 每秒 5 个 bot 到达
+  duration_s: 90
+  jitter: 0.05     # 到达时刻加 5% 抖动，避免所有 bot 同一毫秒发请求
+  seed: 20261121
+
+target:
+  gateway_url: "ws://127.0.0.1:8080/ws"
+  mode: ranked5v5
+  client_secret: "dsh-swarm-dev-secret"
+  platform: windows
+
+behaviors:
+  # 冒烟用短会话 persona（1-2 分钟），跑完能立刻看到结果。
+  # 保真度实验请改用 personas/default.yaml。
+  catalog_file: personas/smoke.yaml
+
+limits:
+  max_concurrent_bots: 500
+  match_wait_timeout_s: 60
+  heartbeat_interval_s: 5
+  room_drain_timeout_s: 60
+
+sink:
+  dir: ../results
+  buffer_bytes: 262144
+
+# 这份计划配套的 SUT 配置，会一起快照进结果目录
+sut_config: ../deploy/sut.smoke.yaml

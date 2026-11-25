@@ -1,0 +1,148 @@
+# 默认 persona 目录 —— 6 种玩家原型（方案 §2.4.1）
+#
+# ⚠ 这些数值是**人为设定的分布**，不是真实玩家遥测。
+#   报告里必须注明来源；用公开数据校准过的版本请另存一份并在 docs/FINDINGS.md 里写清依据。
+#
+# 单位：session_minutes=分钟，requeue_gap_s=秒，*_ms=毫秒，*_p=概率(0..1)
+# 分布：const / uniform(low,high) / exp(mean) / lognorm(mu,sigma) / poisson(lambda) / weibull(shape,scale)
+# min/max 是截断区间；分布说明见 internal/behavior/behavior.go。
+
+personas:
+  - name: casual
+    weight: 0.45
+    description: 休闲玩家：一天 1-2 次，连打两三局就走
+    targets: 常规负载、复排队、匹配池主体
+    session_minutes: { dist: lognorm, mu: 3.20, sigma: 0.55 }   # 中位 ~24.5 分钟
+    matches_per_session: { dist: poisson, lambda: 2.4 }
+    requeue_gap_s: { dist: exp, mean: 45, min: 3, max: 300 }
+    think_time_ms: { dist: lognorm, mu: 6.9, sigma: 0.5, min: 150, max: 8000 }  # 中位 ~992ms
+    burst_interval_ms: { dist: uniform, low: 100, high: 300 }   # 打架时的节奏
+    idle_interval_ms: { dist: uniform, low: 3000, high: 10000 } # 走动/看地图的节奏
+    burst_p: 0.45
+    actions_per_match: { dist: poisson, lambda: 180, min: 20 }
+    invalid_input_p: 0.03
+    queue_cancel_p: 0.03
+    queue_cancel_after_s: 10
+    pre_settle_quit_p: 0.02
+    disconnect_p: 0.01
+    max_reconnects: 3
+    quit_after_losses: 3
+    loss_hazard: 0.25
+    mmr_mean: 1500
+    mmr_std: 200
+
+  - name: novice
+    weight: 0.20
+    description: 新手：慢、乱走、中途退出率高
+    targets: 匹配器冷启动、房间经常不满
+    session_minutes: { dist: lognorm, mu: 3.00, sigma: 0.70 }   # 中位 ~20 分钟
+    matches_per_session: { dist: poisson, lambda: 1.6 }
+    requeue_gap_s: { dist: exp, mean: 60, min: 5, max: 600 }
+    think_time_ms: { dist: lognorm, mu: 7.1, sigma: 0.6, min: 150, max: 8000 }
+    burst_interval_ms: { dist: uniform, low: 150, high: 400 }
+    idle_interval_ms: { dist: uniform, low: 4000, high: 12000 }
+    burst_p: 0.30
+    actions_per_match: { dist: poisson, lambda: 90, min: 10 }
+    invalid_input_p: 0.06
+    queue_cancel_p: 0.05
+    queue_cancel_after_s: 10
+    pre_settle_quit_p: 0.05
+    disconnect_p: 0.03
+    max_reconnects: 2
+    quit_after_losses: 2
+    loss_hazard: 0.45
+    mmr_mean: 1100
+    mmr_std: 250
+
+  - name: hardcore
+    weight: 0.15
+    description: 硬核：高 APM、长会话、深夜在线
+    targets: 峰值与长连接维持
+    session_minutes: { dist: lognorm, mu: 4.20, sigma: 0.60 }   # 中位 ~67 分钟
+    matches_per_session: { dist: poisson, lambda: 5.0 }
+    requeue_gap_s: { dist: exp, mean: 25, min: 2, max: 180 }
+    think_time_ms: { dist: lognorm, mu: 6.5, sigma: 0.45, min: 150, max: 6000 }
+    burst_interval_ms: { dist: uniform, low: 100, high: 220 }
+    idle_interval_ms: { dist: uniform, low: 1500, high: 5000 }
+    burst_p: 0.70
+    actions_per_match: { dist: poisson, lambda: 420, min: 60 }
+    invalid_input_p: 0.02
+    queue_cancel_p: 0.01
+    queue_cancel_after_s: 10
+    pre_settle_quit_p: 0.005
+    disconnect_p: 0.008
+    max_reconnects: 4
+    quit_after_losses: 5
+    loss_hazard: 0.12
+    mmr_mean: 1900
+    mmr_std: 180
+
+  - name: afk
+    weight: 0.06
+    description: 挂机：连上不动
+    targets: 空转房间、心跳超时清理、踢人逻辑
+    session_minutes: { dist: lognorm, mu: 3.40, sigma: 0.50 }   # 中位 ~30 分钟
+    matches_per_session: { dist: poisson, lambda: 3.0 }
+    requeue_gap_s: { dist: exp, mean: 20, min: 2, max: 120 }
+    think_time_ms: { dist: lognorm, mu: 8.5, sigma: 0.5, min: 500, max: 30000 }
+    burst_interval_ms: { dist: uniform, low: 4000, high: 9000 }
+    idle_interval_ms: { dist: uniform, low: 9000, high: 20000 }
+    burst_p: 0.20
+    actions_per_match: { dist: const, value: 3 }
+    invalid_input_p: 0.0
+    queue_cancel_p: 0.02
+    queue_cancel_after_s: 10
+    pre_settle_quit_p: 0.08
+    disconnect_p: 0.02
+    max_reconnects: 1
+    afk_p: 0.90
+    quit_after_losses: 0
+    loss_hazard: 0.0
+    mmr_mean: 1400
+    mmr_std: 200
+
+  - name: griefer
+    weight: 0.04
+    description: 破坏者：刷屏、秒退、反复重连
+    targets: 聊天/风控服务、重连风暴、脏房间与分配泄漏
+    session_minutes: { dist: lognorm, mu: 2.90, sigma: 0.60 }   # 中位 ~18 分钟
+    matches_per_session: { dist: poisson, lambda: 4.0 }
+    requeue_gap_s: { dist: exp, mean: 12, min: 1, max: 90 }
+    think_time_ms: { dist: lognorm, mu: 6.2, sigma: 0.7, min: 100, max: 4000 }
+    burst_interval_ms: { dist: uniform, low: 50, high: 150 }
+    idle_interval_ms: { dist: uniform, low: 500, high: 2500 }
+    burst_p: 0.80
+    actions_per_match: { dist: poisson, lambda: 120, min: 10 }
+    invalid_input_p: 0.15
+    queue_cancel_p: 0.12
+    queue_cancel_after_s: 5
+    pre_settle_quit_p: 0.15
+    disconnect_p: 0.20
+    max_reconnects: 3
+    quit_after_losses: 1
+    loss_hazard: 0.60
+    mmr_mean: 1300
+    mmr_std: 300
+
+  - name: party
+    weight: 0.10
+    description: 组队队长：2-5 人同进同出
+    targets: 匹配器分组、队伍 MMR、放宽策略
+    session_minutes: { dist: lognorm, mu: 3.50, sigma: 0.50 }   # 中位 ~33 分钟
+    matches_per_session: { dist: poisson, lambda: 3.0 }
+    requeue_gap_s: { dist: exp, mean: 35, min: 3, max: 240 }
+    think_time_ms: { dist: lognorm, mu: 6.8, sigma: 0.5, min: 150, max: 8000 }
+    burst_interval_ms: { dist: uniform, low: 120, high: 280 }
+    idle_interval_ms: { dist: uniform, low: 2500, high: 8000 }
+    burst_p: 0.55
+    actions_per_match: { dist: poisson, lambda: 250, min: 30 }
+    invalid_input_p: 0.03
+    queue_cancel_p: 0.02
+    queue_cancel_after_s: 15
+    pre_settle_quit_p: 0.01
+    disconnect_p: 0.01
+    max_reconnects: 3
+    quit_after_losses: 4
+    loss_hazard: 0.25
+    mmr_mean: 1500
+    mmr_std: 150

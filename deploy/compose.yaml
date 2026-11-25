@@ -1,0 +1,100 @@
+# 本地一键起：观测栈 + 被测系统 + 控制面
+#
+# 用法：
+#   docker compose -f deploy/compose.yaml up -d prometheus grafana sutd controller
+#   # 然后在本机跑 runner（压测工具通常跑在另一台机器上，别和 SUT 抢 CPU）
+#   .\bin\runner.exe -plan plans/smoke.yaml -metrics :9091 -sut-config deploy/sut.smoke.yaml
+#
+# 注意：runner 刻意**没有**默认随栈启动。
+# 压测工具与被测系统挤在同一台机器上，你测出来的是两个东西互相抢 CPU 的结果。
+
+services:
+  sutd:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        CMD: sutd
+    image: swarm/sutd:dev
+    command: ["-config", "/app/deploy/sut.yaml"]
+    ports:
+      - "8080:8080"   # gateway (ws)
+      - "8090:8090"   # room node (tcp)
+      - "9090:9090"   # metrics
+    volumes:
+      - ../deploy:/app/deploy:ro
+    healthcheck:
+      test: ["CMD", "/app/bin/sutd", "-h"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  controller:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        CMD: controller
+    image: swarm/controller:dev
+    command: ["-addr", ":7070", "-sink", "/app/results"]
+    ports:
+      - "7070:7070"
+    volumes:
+      - ../results:/app/results
+      - ../plans:/app/plans:ro
+    depends_on:
+      - sutd
+    restart: unless-stopped
+
+  runner:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        CMD: runner
+    image: swarm/runner:dev
+    command: ["-plan", "/app/plans/smoke.yaml", "-metrics", ":9091"]
+    ports:
+      - "9091:9091"
+    volumes:
+      - ../plans:/app/plans:ro
+      - ../results:/app/results
+    profiles: ["load"]   # 必须显式 --profile load 才会启动
+    depends_on:
+      - sutd
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    ports:
+      - "9095:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./rules.yml:/etc/prometheus/rules.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:

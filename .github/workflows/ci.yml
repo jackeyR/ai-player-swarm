@@ -1,0 +1,74 @@
+# 持续集成：每个 push / PR 都跑一遍「能编译 + 能过测试」。
+#
+# 为什么两个平台都跑：这个项目的键盘/控制台代码是分平台的
+# （internal/play/keys_windows.go 与 keys_other.go），只在一个平台 build 过
+# 等于没验证过另一个平台。Linux 上跑测试、Windows 上只 build，是性价比最高的组合。
+#
+# 测试不依赖 Docker / Prometheus / 浏览器：所有测试都是进程内起服务、随机端口。
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: 测试（Linux）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 编译
+        run: go build ./...
+
+      - name: 静态检查
+        run: go vet ./...
+
+      - name: 格式检查
+        run: |
+          unformatted=$(gofmt -l ./internal ./srv ./cmd)
+          if [ -n "$unformatted" ]; then
+            echo "以下文件未格式化："
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: 测试
+        run: go test ./... -count=1 -timeout 300s
+
+  build-windows:
+    name: 编译（Windows）
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 编译四个二进制
+        run: |
+          go build -o bin/sutd.exe ./cmd/sutd
+          go build -o bin/runner.exe ./cmd/runner
+          go build -o bin/controller.exe ./cmd/controller
+          go build -o bin/client.exe ./cmd/client
+
+      - name: 冒烟（起 SUT + 打 30 个 bot）
+        shell: pwsh
+        run: |
+          .\bin\sutd.exe -config deploy/sut.smoke.yaml &
+          for ($i = 0; $i -lt 40; $i++) {
+            Start-Sleep -Milliseconds 250
+            try { Invoke-WebRequest "http://127.0.0.1:9090/healthz" -UseBasicParsing -TimeoutSec 2 | Out-Null; break } catch { }
+          }
+          .\bin\runner.exe -plan plans/smoke.yaml -timeout 120s
+          if ($LASTEXITCODE -ne 0) { exit 1 }

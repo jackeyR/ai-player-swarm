@@ -1,0 +1,45 @@
+# 陪练计划：给真人客户端当陪练用（配合 deploy/sut.duel.yaml 的 1v1 配置）。
+#
+# 为什么需要它：5v5 要凑 10 个人，一个人开客户端根本排不上；这份计划让几个 bot
+# 持续在队列里进进出出，真人随时能配到一个对手。
+#
+# 用法：
+#   .\bin\sutd.exe -config deploy\sut.duel.yaml
+#   .\bin\runner.exe -plan plans\duel.yaml            # 陪练队列
+#   .\bin\client.exe -account me                       # 你自己进去打
+#
+# 注意：这些 bot 的 persona 是「冒烟 persona」（会话只有 1-2 分钟），
+# 只为了让队列一直有人，不代表任何真实玩家分布。
+
+name: duel-ladder
+description: 真人客户端的陪练队列（1v1）
+seed: 20261124
+
+traffic:
+  shape: constant
+  total_bots: 4
+  rate: 0.5        # 每 2 秒补一个 bot，队列里始终有 2-4 个人
+  duration_s: 120  # 2 分钟后不再补人（已经排队的会继续打完）
+  jitter: 0.05
+  seed: 20261124
+
+target:
+  gateway_url: "ws://127.0.0.1:8080/ws"
+  mode: ranked5v5
+  client_secret: "dsh-swarm-dev-secret"
+  platform: windows
+
+behaviors:
+  catalog_file: personas/smoke.yaml
+
+limits:
+  max_concurrent_bots: 16
+  match_wait_timeout_s: 120
+  heartbeat_interval_s: 5
+  room_drain_timeout_s: 120
+
+sink:
+  dir: ../results
+  buffer_bytes: 65536
+
+sut_config: ../deploy/sut.duel.yaml

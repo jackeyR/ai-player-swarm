@@ -1,0 +1,35 @@
+# Prometheus 抓取配置（docker compose 与本地裸跑通用）
+#
+# 抓取间隔 2s：压测实验通常只跑几分钟，15s 的默认间隔会把尖峰全抹平。
+# 这是「观测栈自己也要为压测调参」的一个例子。
+
+global:
+  scrape_interval: 2s
+  scrape_timeout: 1500ms
+  evaluation_interval: 5s
+
+rule_files:
+  - rules.yml
+
+scrape_configs:
+  - job_name: sut
+    static_configs:
+      - targets: ["sutd:9090"]
+        labels:
+          component: sut
+
+  - job_name: runner
+    static_configs:
+      - targets: ["runner:9091"]
+        labels:
+          component: runner
+
+  - job_name: controller
+    static_configs:
+      - targets: ["controller:7070"]
+        labels:
+          component: controller
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

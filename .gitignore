@@ -1,0 +1,22 @@
+# 构建产物
+/bin/
+/dist/
+*.exe
+*.exe~
+*.test
+*.out
+
+# 实验结果（体积大，不进版本库；plans/ 与 configs 必须进）
+/results/
+/analysis/out/
+*.parquet
+*.jsonl
+
+# 依赖缓存
+/vendor/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+.DS_Store

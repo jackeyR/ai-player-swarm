@@ -1,0 +1,110 @@
+# SLO 告警规则：每条规则都必须对应 docs/SLO.md 里的一行 SLO。
+#
+# 纪律：**告警阈值取自 SLO，不取自「现在看起来多少」**。
+# 否则告警会慢慢退化成「噪声开关」，最后没人看。
+
+groups:
+  - name: sut-slo
+    interval: 5s
+    rules:
+      # 房间 tick 超预算率 > 0.1%（D2）
+      - alert: RoomTickBudgetOverrun
+        expr: |
+          sum(rate(room_tick_overrun_total[1m]))
+            /
+          sum(rate(room_tick_total[1m])) > 0.001
+        for: 30s
+        labels:
+          severity: critical
+          layer: room
+        annotations:
+          summary: "房间 tick 超预算率超过 0.1%"
+          runbook: "先看 room_tick_lag_seconds 是否同涨（进程被挤占），再看 settle_write_seconds（同步写库拖垮 tick）"
+
+      # 空房泄漏：应恒为 0（D4）
+      - alert: RoomLeak
+        expr: room_leak_gauge > 0
+        for: 30s
+        labels:
+          severity: critical
+          layer: room
+        annotations:
+          summary: "存在未被回收的房间（{{ $value }} 间）"
+          runbook: "检查 janitor 是否在跑、空房判定条件、以及 room.leak_injection 是否被打开"
+
+      # 分配 p99 > 300ms（D5）
+      - alert: RoomAllocSlow
+        expr: |
+          histogram_quantile(0.99,
+            sum by (le) (rate(room_alloc_seconds_bucket[2m]))) > 0.3
+        for: 1m
+        labels:
+          severity: warning
+          layer: alloc
+        annotations:
+          summary: "分配器 p99 超过 300ms"
+          runbook: "看 room_alloc_miss_total 是否同步上涨（池子空了现建），再看 Redis 热键与全局锁"
+
+      # 匹配 p99 > 8s（D10）
+      - alert: MatchWaitSlow
+        expr: |
+          histogram_quantile(0.99,
+            sum by (le) (rate(match_wait_seconds_bucket[2m]))) > 8
+        for: 1m
+        labels:
+          severity: warning
+          layer: match
+        annotations:
+          summary: "匹配等待 p99 超过 8s"
+          runbook: "按 mmr_bucket 拆开看，是整体慢还是某个分段饿死（D13）"
+
+      # 会话错误率 > 0.5%
+      - alert: SessionErrorRatio
+        expr: |
+          sum(rate(session_errors_total[1m])) / sum(rate(session_total[1m])) > 0.005
+        for: 30s
+        labels:
+          severity: critical
+          layer: room
+        annotations:
+          summary: "会话错误率超过 0.5%"
+          runbook: "按 code 拆：heartbeat_timeout 说明保活有问题；disconnected 说明客户端批量掉线"
+
+      # 重连成功率 < 99%（D6）
+      - alert: ReconnectFailure
+        expr: |
+          sum(rate(reconnect_success_total[1m])) / sum(rate(reconnect_total[1m])) < 0.99
+        for: 30s
+        labels:
+          severity: warning
+          layer: room
+        annotations:
+          summary: "重连成功率低于 99%"
+          runbook: "检查 room_token 有效期、房间是否已被 janitor 回收、以及房间服是否整节点掉线"
+
+  - name: runner-slo
+    interval: 5s
+    rules:
+      # bot 端调度滞后 p99 > 50ms：说明「bot 先成为瓶颈」，此时所有服务端数字都不可信
+      - alert: BotSchedulerLag
+        expr: |
+          histogram_quantile(0.99,
+            sum by (le) (rate(bot_schedule_lag_seconds_bucket[1m]))) > 0.05
+        for: 30s
+        labels:
+          severity: critical
+          layer: runner
+        annotations:
+          summary: "bot 端调度滞后 p99 超过 50ms"
+          runbook: "现在的延迟数字测的是 bot 自己。降低 max_concurrent_bots 或加 runner"
+
+      # goroutine 数异常增长（B1：泄漏的可视化信号）
+      - alert: GoroutineGrowth
+        expr: deriv(bot_goroutines[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          layer: runner
+        annotations:
+          summary: "runner 的 goroutine 数持续增长"
+          runbook: "抓 goroutine profile 对比：pprof -http=:0 http://runner:9091/debug/pprof/goroutine"

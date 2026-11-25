@@ -1,0 +1,42 @@
+# 尖峰计划：基线 + 整点惊群。
+#
+# 真实事故大多不是「平均负载高」，而是「某个瞬时形状 + 某个依赖变慢」（方案 §2.7）。
+# 这里在 60s 和 120s 各打一次尖峰，观察：
+#   - 分配器 p99 是否出现台阶（Redis 热键在尖峰下才会暴露）
+#   - 房间 tick 超预算率是否跟涨（同步结算写库的连带效应）
+#   - 重连成功率是否掉（断线风暴的早期信号）
+name: peak
+description: 尖峰：基线 + 两次整点惊群
+seed: 20261123
+
+traffic:
+  shape: spike
+  total_bots: 400
+  rate: 6
+  duration_s: 240
+  spikes:
+    - { at_s: 60,  duration_s: 10, extra_rate: 20 }   # 30/s，持续 10s
+    - { at_s: 150, duration_s: 15, extra_rate: 15 }   # 21/s，持续 15s
+  jitter: 0.10
+  seed: 20261123
+
+target:
+  gateway_url: "ws://127.0.0.1:8080/ws"
+  mode: ranked5v5
+  client_secret: "dsh-swarm-dev-secret"
+  platform: windows
+
+behaviors:
+  catalog_file: personas/default.yaml
+
+limits:
+  max_concurrent_bots: 1500
+  match_wait_timeout_s: 120
+  heartbeat_interval_s: 5
+  room_drain_timeout_s: 120
+
+sink:
+  dir: ../results
+  buffer_bytes: 1048576
+
+sut_config: ../deploy/sut.yaml

@@ -1,0 +1,16 @@
+# 统一换行：仓库里一律 LF，签出到 Windows 时脚本类给 CRLF。
+#
+# 为什么要显式写：这个项目在 Windows 上开发，但 Go 源码、Markdown、YAML
+# 都应该是 LF；只有 .ps1/.cmd 在旧版 Windows 工具链里对 CRLF 更友好。
+
+* text=auto eol=lf
+
+*.ps1   text eol=crlf
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# 二进制产物不要做换行转换
+*.docx  binary
+*.png   binary
+*.jpg   binary
+*.zip   binary

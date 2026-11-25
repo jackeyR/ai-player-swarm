@@ -1,0 +1,59 @@
+# 被测系统（SUT）配置 —— 默认形态
+#
+# 这个文件就是「实验条件」的一部分：改它等于改实验，必须和负载计划一起进版本库。
+# 三个「故意留下的瓶颈」都在这里以开关形式出现，方便做修复前后对照（方案 §2.1 / §4.4）。
+
+# 指标端点（Prometheus 抓这里）
+metrics_addr: ":9090"
+# 房间服监听地址，同时也是下发给客户端的通告地址
+room_advertise_addr: "127.0.0.1:8090"
+
+gateway:
+  addr: ":8080"
+  server_name: "swarm-sut/1"
+  # 自建压测环境：bot 与服务端共用这个开发密钥。
+  # 生产环境应由注册流程下发，绝不写进仓库（F9）。
+  client_secret: "dsh-swarm-dev-secret"
+  session_ttl_minutes: 30
+  # 应用层心跳超时（A8）：15s 收不到任何帧就判定死连接
+  heartbeat_timeout_ms: 15000
+  handshake_timeout_ms: 5000
+  max_message_bytes: 65536
+
+room:
+  tick_rate_ms: 100          # 10Hz
+  duration_ticks: 300        # 一局 30s（真实对局是 6 分钟，本地迭代用短的）
+  fill_timeout_ms: 5000      # 等满 10 人最多 5s
+  empty_ttl_ms: 10000        # 全空 10s 后回收
+  heartbeat_timeout_ms: 5000 # 房间内 5s 没动静就踢（D7）
+  budget_ms: 16              # 单帧预算（D2）
+  start_delay_ms: 0
+  # 关掉房间回收，复现「空房泄漏」——room_leak_gauge 会一路涨上去
+  leak_injection: false
+
+alloc:
+  mode: ranked5v5
+  pool_size: 64              # 预热空闲房间数
+  refill_interval_ms: 100
+  redis_latency_ms: 0.5      # 模拟 Redis 往返
+  # 刻意瓶颈 #1：空闲池全落在一个 Redis 分片上
+  pool_hot_key: true
+  # 刻意瓶颈 #2：分配器全局锁
+  global_lock: true
+
+match:
+  mode: ranked5v5
+  team_size: 5
+  loop_interval_ms: 100
+  initial_window: 200        # 初始可接受 MMR 差
+  window_growth_per_sec: 100 # 每秒放宽
+  max_window: 1000
+  starve_after_ms: 20000     # 等 20s 还没凑齐，就带不满的阵容开局
+
+redis:
+  shards: 8
+  latency_ms: 0.5
+
+settlement:
+  # 刻意瓶颈 #3：结算写库 2ms fsync，而且写在 tick goroutine 里
+  fsync_ms: 2.0

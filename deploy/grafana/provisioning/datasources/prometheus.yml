@@ -1,0 +1,12 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      # 与 prometheus.yml 的 scrape_interval 对齐，避免看板把 2s 的数据画成 15s 的台阶
+      timeInterval: 2s
+      httpMethod: POST

@@ -1,0 +1,232 @@
+{
+  "uid": "swarm-overview",
+  "title": "AI 玩家集群 · 对局压测总览",
+  "tags": ["swarm", "load-test"],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "mmr_bucket",
+        "label": "MMR 分段",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(match_wait_seconds_count, mmr_bucket)",
+        "includeAll": true,
+        "multi": true,
+        "refresh": 2
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "当前活跃 bot",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(bot_active)" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "type": "stat",
+      "title": "空房泄漏（应恒为 0）",
+      "gridPos": { "h": 4, "w": 5, "x": 4, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "room_leak_gauge" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "tick 超预算率",
+      "gridPos": { "h": 4, "w": 5, "x": 9, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(room_tick_overrun_total[1m])) / sum(rate(room_tick_total[1m]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "decimals": 3 },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "重连成功率",
+      "gridPos": { "h": 4, "w": 5, "x": 14, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(reconnect_success_total[1m])) / clamp_min(sum(rate(reconnect_total[1m])), 1e-9)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "decimals": 2 },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "匹配等待 p50/p99（按 MMR 桶）",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "p50 {{mmr_bucket}}",
+          "expr": "histogram_quantile(0.5, sum by (le, mmr_bucket) (rate(match_wait_seconds_bucket{mmr_bucket=~\"$mmr_bucket\"}[1m])))"
+        },
+        {
+          "refId": "B",
+          "legendFormat": "p99 {{mmr_bucket}}",
+          "expr": "histogram_quantile(0.99, sum by (le, mmr_bucket) (rate(match_wait_seconds_bucket{mmr_bucket=~\"$mmr_bucket\"}[1m])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "分配延迟 p50/p99（走池子 vs 现建）",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "p50 {{result}}",
+          "expr": "histogram_quantile(0.5, sum by (le, result) (rate(room_alloc_seconds_bucket[1m])))"
+        },
+        {
+          "refId": "B",
+          "legendFormat": "p99 {{result}}",
+          "expr": "histogram_quantile(0.99, sum by (le, result) (rate(room_alloc_seconds_bucket[1m])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "p99.*" },
+            "properties": [{ "id": "custom.lineWidth", "value": 2 }]
+          }
+        ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "房间 tick 耗时 p99 与调度滞后 p99",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "tick p99",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(room_tick_duration_seconds_bucket[1m])))"
+        },
+        {
+          "refId": "B",
+          "legendFormat": "tick lag p99",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(room_tick_lag_seconds_bucket[1m])))"
+        },
+        {
+          "refId": "C",
+          "legendFormat": "16ms 预算线",
+          "expr": "vector(0.016)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "bot 端各阶段 p99（从应到时刻算起）",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{phase}}",
+          "expr": "histogram_quantile(0.99, sum by (le, phase) (rate(bot_phase_seconds_bucket[1m])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "调度滞后 p99（bot 是否先成为瓶颈）",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "schedule lag p99",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(bot_schedule_lag_seconds_bucket[1m])))"
+        },
+        {
+          "refId": "B",
+          "legendFormat": "50ms 阈值",
+          "expr": "vector(0.05)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "房间生命周期：创建 / 回收 / 运行中",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "legendFormat": "创建", "expr": "sum(rate(rooms_created_total[1m]))" },
+        { "refId": "B", "legendFormat": "回收", "expr": "sum(rate(rooms_closed_total[1m]))" },
+        { "refId": "C", "legendFormat": "运行中", "expr": "sum(rooms_running)" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "会话结果分布与错误码",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "legendFormat": "session {{result}}", "expr": "sum by (result) (rate(session_total[1m]))" },
+        { "refId": "B", "legendFormat": "error {{code}}", "expr": "sum by (code) (rate(session_errors_total[1m]))" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" },
+        "overrides": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+# 泄漏注入变体：关掉了房间回收。
+#
+# 用途：复现 D4「空房泄漏是最隐蔽的故障」。
+# 预期现象：room_leak_gauge 持续上升且永不归零，rooms_running 只增不减，
+#           进程内存缓慢上涨，最终分配器找不到可用资源。
+# 观测方式：见 deploy/prometheus.yml 里的 RoomLeak 告警规则。
+metrics_addr: ":9090"
+room_advertise_addr: "127.0.0.1:8090"
+
+gateway:
+  addr: ":8080"
+  server_name: "swarm-sut/leak"
+  client_secret: "dsh-swarm-dev-secret"
+  session_ttl_minutes: 30
+  heartbeat_timeout_ms: 15000
+  handshake_timeout_ms: 5000
+  max_message_bytes: 65536
+
+room:
+  tick_rate_ms: 100
+  duration_ticks: 100
+  fill_timeout_ms: 3000
+  empty_ttl_ms: 5000
+  heartbeat_timeout_ms: 5000
+  budget_ms: 16
+  start_delay_ms: 0
+  # 关键开关：janitor「忘了」回收
+  leak_injection: true
+
+alloc:
+  mode: ranked5v5
+  pool_size: 64
+  refill_interval_ms: 100
+  redis_latency_ms: 0.0
+  pool_hot_key: false
+  global_lock: false
+
+match:
+  mode: ranked5v5
+  team_size: 5
+  loop_interval_ms: 100
+  initial_window: 400
+  window_growth_per_sec: 200
+  max_window: 2000
+  starve_after_ms: 4000
+
+redis:
+  shards: 8
+  latency_ms: 0.0
+
+settlement:
+  fsync_ms: 0.0
